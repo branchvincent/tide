@@ -19,6 +19,11 @@ function _tide_refresh_prompt --on-variable $prompt_var --on-variable COLUMNS
     commandline -f repaint
 end
 
+bind \r _tide_maybe_execute
+function _tide_reset_transient --on-event fish_postexec
+    set -e _tide_transient
+end
+
 if contains newline $_tide_left_items # two line prompt initialization
     test "$tide_prompt_add_newline_before" = true && set -l add_newline '\n'
 
@@ -36,7 +41,12 @@ if contains newline $_tide_left_items # two line prompt initialization
 
     eval "
 function fish_prompt
-    _tide_status=\$status _tide_pipestatus=\$pipestatus if not set -e _tide_repaint
+    _tide_status=\$status _tide_pipestatus=\$pipestatus if set -q tide_transient_prompt _tide_transient
+        printf \e\[0J # clear line
+        set -lx _tide_right_items
+        _tide_left_items=character printf \"%s \" (_tide_2_line_prompt)
+        return
+    else if not set -e _tide_repaint
         jobs -q && set -lx _tide_jobs
         $fish_path -c \"set _tide_pipestatus \$_tide_pipestatus
 set _tide_parent_dirs \$_tide_parent_dirs
@@ -55,6 +65,7 @@ PATH=\$(string escape \"\$PATH\") CMD_DURATION=\$CMD_DURATION fish_bind_mode=\$f
 end
 
 function fish_right_prompt
+    set -q tide_transient_prompt && set -e _tide_transient && return
     string unescape \"\$$prompt_var[1][4]$bot_right_frame$color_normal\"
 end"
 else # one line prompt initialization
